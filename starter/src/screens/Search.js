@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { search, update } from "../BooksAPI";
+import { getAll, search, update } from "../BooksAPI";
 
 function Search() {
+  const [searchBooks, setSearchBooks] = useState([]);
   const [books, setBooks] = useState([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -10,7 +11,7 @@ function Search() {
 
   useMemo(() => {
     if (query === "") {
-      setBooks([]);
+      setSearchBooks([]);
       return;
     }
     const delayDebounce = setTimeout(() => {
@@ -19,10 +20,10 @@ function Search() {
       search(query, 100)
         .then((data) => {
           if (data && data.items) {
-            setBooks([]);
+            setSearchBooks([]);
             setError(true);
           } else {
-            setBooks(data || []);
+            setSearchBooks(data || []);
           }
           setLoading(false);
         })
@@ -35,19 +36,33 @@ function Search() {
     return () => clearTimeout(delayDebounce);
   }, [query]);
 
-  const addBook = (book) => {
-    console.log(book);
-    update(book, book.shelf)
-      .then((data) => {})
-      .catch((error) => {
+  useEffect(() => {
+    const fetchBooks = async () => {
+      try {
+        const data = await getAll();
+        setBooks(data);
+      } catch (error) {
         console.log(error);
-      });
-  };
+      }
+    };
 
-  const onChangeBookShelf = (book, shelf) => {
-    setBooks(prevBooks => 
-      prevBooks.map(item => item.id === book.id ? { ...item, shelf } : item)
-    );
+    fetchBooks();
+  }, []);
+
+  const mapBooks = searchBooks.map((searchBook) => {
+    const book = books.find((book) => book.id === searchBook.id);
+    if (book) {
+      return { ...searchBook, shelf: book.shelf };
+    }
+    return searchBook;
+  });
+
+  const onChangeBookShelf = async (book, shelf) => {
+    try {
+      await update(book, shelf);
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   return (
@@ -71,41 +86,45 @@ function Search() {
         )}
         {!loading && !error && (
           <ol className="books-grid">
-            {books.map((book) =>
-              book.imageLinks && book.authors ? (
-                <li key={book.id}>
-                  <div className="book">
-                    <div className="book-top">
-                      <div
-                        className="book-cover"
-                        style={{
-                          width: 128,
-                          height: 193,
-                          backgroundImage: `url(${book.imageLinks.thumbnail})`,
-                        }}
-                        onClick={() => addBook(book)}
-                      ></div>
-                      <div className="book-shelf-changer">
-                      <select defaultValue={book.shelf ? book.shelf : 'none'}
-                      onChange={(e) => onChangeBookShelf(book, e.target.value)}>
-                        <option value="move" disabled>
-                          Move to...
-                        </option>
-                        <option value="currentlyReading">
-                          Currently Reading
-                        </option>
-                        <option value="wantToRead">Want to Read</option>
-                        <option value="read">Read</option>
-                        <option value="none">None</option>
-                      </select>
+            {mapBooks &&
+              mapBooks.map((book) =>
+                book.imageLinks && book.authors ? (
+                  <li key={book.id}>
+                    <div className="book">
+                      <div className="book-top">
+                        <div
+                          className="book-cover"
+                          style={{
+                            width: 128,
+                            height: 193,
+                            backgroundImage: `url(${book.imageLinks.thumbnail})`,
+                          }}
+                        ></div>
+                        <div className="book-shelf-changer">
+                          <select
+                            defaultValue={book.shelf ? book.shelf : "none"}
+                            onChange={(e) =>
+                              onChangeBookShelf(book, e.target.value)
+                            }
+                          >
+                            <option value="move" disabled>
+                              Move to...
+                            </option>
+                            <option value="currentlyReading">
+                              Currently Reading
+                            </option>
+                            <option value="wantToRead">Want to Read</option>
+                            <option value="read">Read</option>
+                            <option value="none">None</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="book-title">{book.title}</div>
+                      <div className="book-authors">{book.authors}</div>
                     </div>
-                    </div>
-                    <div className="book-title">{book.title}</div>
-                    <div className="book-authors">{book.authors}</div>
-                  </div>
-                </li>
-              ) : null
-            )}
+                  </li>
+                ) : null
+              )}
           </ol>
         )}
       </div>

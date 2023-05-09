@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { getAll } from "../BooksAPI";
+import { getAll, update } from "../BooksAPI";
 import { useHistory } from "react-router-dom";
 
 function Shelf() {
@@ -8,29 +8,27 @@ function Shelf() {
   const history = useHistory();
 
   useEffect(() => {
-    getAll()
-      .then((data) => {
+    const fetchBooks = async () => {
+      try {
+        const data = await getAll();
         setBooks(data);
-      })
-      .catch((error) => {
-        console.log(error); // Xử lý lỗi khi fetch gặp vấn đề
-      });
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+    fetchBooks();
   }, []);
 
-  const onMoveShelf = useCallback(
-    (book, newShelf) => {
-      if (book.shelf !== newShelf) {
-        const updatedBooks = books.map((item) => {
-          if (item.id === book.id) {
-            return { ...item, shelf: newShelf };
-          }
-          return item;
-        });
-        setBooks(updatedBooks);
-      }
-    },
-    [books]
-  );
+  const onMoveShelf = useCallback(async (book, newShelf) => {
+    try {
+      await update(book, newShelf);
+      const data = await getAll();
+      setBooks(data);
+    } catch (error) {
+      console.log(error);
+    }
+  }, []);
 
   function handleNavigate(bookId) {
     history.push(`/book/${bookId}`);
@@ -98,7 +96,7 @@ function Shelf() {
           <div className="bookshelf">
             <h2 className="bookshelf-title">Read</h2>
             <div className="bookshelf-books">
-              <ol className="books-grid">{getBooksByShelf("wantToRead")}</ol>
+              <ol className="books-grid">{getBooksByShelf("read")}</ol>
             </div>
           </div>
         </div>
